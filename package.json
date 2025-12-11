@@ -4,13 +4,16 @@
   "description": "仲裁二合一工具",
   "main": "index.js",
   "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev"
+    "dev": "serve public/",
+    "start": "serve public/"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@vercel/node": "^2.5.9"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
   }
 }
