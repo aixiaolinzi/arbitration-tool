@@ -1,0 +1,16 @@
+{
+  "name": "arbitration-tool",
+  "version": "1.0.0",
+  "description": "仲裁二合一工具",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/node": "^2.5.9"
+  }
+}
