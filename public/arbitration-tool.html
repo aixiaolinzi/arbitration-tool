@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正则匹配器 & AVM状态解析工具</title>
+    <style>
+        /* 保持原有样式不变 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+            line-height: 1.4;
+        }
+        .main-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+            height: calc(100vh - 40px);
+        }
+        .tool-panel {
+            flex: 1;
+            min-width: 0;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+            overflow-y: auto;
+            max-height: 100%;
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 15px;
+        }
+        .input-group {
+            margin-bottom: 12px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+            font-size: 13px;
+        }
+        input[type=text], input[type=file] {
+            width: 100%;
+            padding: 6px 8px;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+        button {
+            padding: 6px 12px;
+            font-size: 13px;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 3px;
+            transition: all 0.2s;
+        }
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+        .file-path {
+            margin: 8px 0;
+            color: #555;
+            font-size: 13px;
+        }
+        .results {
+            margin-top: 12px;
+            min-height: 50px;
+        }
+
+        /* 状态提示样式 */
+        .loading, .success, .error {
+            font-size: 12px;
+            padding: 6px;
+            border-radius: 3px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        .loading {
+            color: #3498db;
+            background-color: #ebf5fb;
+        }
+        .success {
+            color: #2ecc71;
+            background-color: #e8f8f0;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fdecea;
+        }
+
+        /* 左栏（AVM状态解析工具）样式 */
+        .left-panel button {
+            background: #4CAF50;
+        }
+        .left-panel button:hover:not(:disabled) {
+            background: #45a049;
+        }
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .file-input-wrapper input[type="file"] {
+            flex: 1;
+        }
+        .file-name {
+            font-size: 11px;
+            color: #666;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 13px;
+            transition: opacity 0.3s;
+            line-height: 1.1;
+        }
+        .result-table th {
+            background-color: #4CAF50;
+            color: white;
+            padding: 3px 5px;
+            text-align: left;
+        }
+        .result-table td {
+            padding: 3px 5px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: top;
+        }
+        .result-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .all-states {
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.1;
+        }
+        .code-info {
+            margin-top: 4px;
+            padding: 3px 5px;
+            background-color: #ebf5fb;
+            border-radius: 3px;
+            font-size: 11px;
+            line-height: 1.1;
+        }
+        .event-info {
+            margin-top: 6px;
+            padding: 4px 6px;
+            background-color: #e8f5e9;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        }
+
+        /* 右栏（正则表达式匹配器）样式 */
+        .right-panel button {
+            background: #007bff;
+        }
+        .right-panel button:hover:not(:disabled) {
+            background: #0056b3;
+        }
+        .match-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #007bff;
+            transition: opacity 0.3s;
+        }
+        .match-item.matched {
+            border-left-color: #28a745;
+        }
+        .match-item.unmatched {
+            border-left-color: #dc3545;
+        }
+        .regex {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 4px;
+            border-radius: 3px;
+            word-break: break-all;
+            margin-bottom: 5px;
+        }
+        .regex-part {
+            padding: 0 2px;
+        }
+        .regex-mismatch {
+            background-color: #ffcccc;
+            border-radius: 2px;
+        }
+        .tip {
+            color: #d9534f;
+        }
+        .mismatch-info {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .error-pos {
+            background-color: #ffcccc;
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+        .string-display {
+            font-family: monospace;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        .result-id-description {
+            color: #2c3e50;
+            font-style: italic;
+        }
+
+        /* 联动提示样式 */
+        .linkage-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+            font-style: italic;
+        }
+
+        /* 公共配置区域样式 */
+        .common-config-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 右侧输入区域左右分布样式 */
+        .right-inputs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .right-input-column {
+            flex: 1;
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        .result-item {
+            opacity: 0;
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            .tool-panel {
+                margin-bottom: 20px;
+                max-height: none;
+                height: auto;
+            }
+            .right-inputs-container {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+        
+        /* 返回按钮样式 */
+        .back-button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .back-button {
+            background-color: #6c757d;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-button-container">
+        <button class="back-button" onclick="window.location.href='/'">← 返回主页</button>
+    </div>
+    
+    <div class="main-container">
+        <!-- 左栏：AVM状态解析工具 -->
+        <div class="tool-panel left-panel">
+            <h2>AVM状态解析工具</h2>
+            
+            <!-- 合并的文件选择：映射表和规则是同一个文件 -->
+            <div class="common-config-section">
+                <label for="dataFile">1. 选择PremiseConditions.txt文件（必选）：</label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="dataFile" accept=".txt" required>
+                    <span id="dataFileName" class="file-name"></span>
+                </div>
+                <div id="dataLoadStatus"></div>
+            </div>
+            
+            <!-- 左右分布的输入区域 -->
+            <div class="right-inputs-container">
+                <div class="right-input-column">
+                    <label for="statusCodeRight">2. 输入状态码（获取log，过滤ArbitrationAlgo-getResult-result，找到event:后面的值，如：21--44414133331322221111）：</label>
+                    <input type="text" id="statusCodeRight" placeholder="如:21--44414133331322221111" disabled>
+                    <button id="parseButton" onclick="processBothFromRight()" disabled>解析状态码</button>
+                    <div class="linkage-info">点击将同时执行状态码解析和匹配</div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <h3>3. 解析结果</h3>
+                <div id="eventSectionRight"></div>
+                <div id="resultSectionRight"></div>
+            </div>
+        </div>
+
+        <!-- 右栏：正则表达式匹配器 -->
+        <div class="tool-panel right-panel">
+            <h2>正则表达式匹配器（必须选择 JSON 文件）</h2>
+
+            <!-- 文件选择部分 -->
+            <input type="file" id="fileSelectorLeft" accept=".json" style="display:none"/>
+            <button id="btnSelectLeft" onclick="document.getElementById('fileSelectorLeft').click()" disabled>选择 arbitration_config.json 文件</button>
+            <div id="filePathLeft" class="file-path">请先加载数据文件</div>
+
+            <!-- 输入部分 -->
+            <div class="input-group">
+                <label for="inputStringLeft">事件字符串（格式：数字--字符串）：</label>
+                <input type="text" id="inputStringLeft" placeholder="例如：3--51414333332322221121" disabled/>
+            </div>
+            <button id="btnMatchLeft" onclick="processBothFromLeft()" disabled>匹配</button>
+            <div class="linkage-info">点击将同时执行匹配和状态码解析</div>
+
+            <!-- 结果部分 -->
+            <div class="results" id="resultsLeft"></div>
+        </div>
+    </div>
+
+    <script>
+        // 声明全局映射表变量，将从TXT文件动态加载
+        let eventIdMap = {};
+        let resultIdMap = {};
+        let conditionMap = {};
+        let statusDefinitionsRight = [];
+        let dataLoaded = false;
+
+        // 监听数据文件选择（合并了映射表和规则）
+        document.getElementById('dataFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const statusDiv = document.getElementById('dataLoadStatus');
+            const fileNameSpan = document.getElementById('dataFileName');
+            
+            if (!file) {
+                fileNameSpan.textContent = '未选择文件';
+                statusDiv.innerHTML = '';
+                return;
+            }
+            
+            fileNameSpan.textContent = file.name;
+            statusDiv.innerHTML = '<div class="loading">正在加载数据文件...</div>';
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    // 解析文件内容并填充所有映射表和规则
+                    parseDataFile(content);
+                    
+                    // 标记数据已加载
+                    dataLoaded = true;
+                    statusDiv.innerHTML = '<div class="success">数据文件加载成功</div>';
+                    
+                    // 启用其他功能按钮
+                    document.getElementById('statusCodeRight').disabled = false;
+                    document.getElementById('parseButton').disabled = false;
+                    document.getElementById('btnSelectLeft').disabled = false;
+                    document.getElementById('filePathLeft').textContent = '尚未选择任何文件';
+                } catch (error) {
+                    statusDiv.innerHTML = `<div class="error">数据解析失败: ${error.message}</div>`;
+                    dataLoaded = false;
+                    disableFeatures();
+                }
+            };
+            reader.onerror = function() {
+                statusDiv.innerHTML = '<div class="error">文件读取失败</div>';
+                disableFeatures();
+            };
+            reader.readAsText(file);
+        });
+
+        // 解析数据文件内容（同时处理映射表和规则）
+        function parseDataFile(content) {
+            // 重置所有映射表
+            eventIdMap = {};
+            resultIdMap = {};
+            conditionMap = {};
+            statusDefinitionsRight = [];
+            
+            // 按行分割内容，处理可能的空白行
+            const lines = content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // 找到各个部分的起始行
+            let eventIdStart = -1;
+            let resultIdStart = -1;
+            let conditionStart = -1;
+            
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('EventID:')) {
+                    eventIdStart = i;
+                } else if (lines[i].startsWith('ResultID：')) {
+                    resultIdStart = i;
+                } else if (lines[i].startsWith('Condition：')) {
+                    conditionStart = i;
+                }
+            }
+            
+            // 验证文件格式
+            if (eventIdStart === -1 || resultIdStart === -1 || conditionStart === -1) {
+                throw new Error('文件格式错误，缺少必要的部分（EventID、ResultID或Condition）');
+            }
+            
+            // 解析各个部分
+            parseEventIdSection(lines.slice(eventIdStart, resultIdStart));
+            parseResultIdSection(lines.slice(resultIdStart, conditionStart));
+            parseConditionSection(lines.slice(conditionStart));
+            
+            // 从Condition构建状态定义（原规则文件内容）
+            buildStatusDefinitions();
+        }
+
+        // 解析EventID部分（支持跨多行）
+        function parseEventIdSection(lines) {
+            // 合并所有行内容，处理可能的换行
+            const content = lines.map(line => {
+                if (line.startsWith('EventID:')) {
+                    return line.split(':', 2)[1].trim();
+                }
+                return line.trim();
+            }).join('\t');
+            
+            if (!content) {
+                throw new Error('EventID部分内容为空');
+            }
+            
+<!--            // 按制表符分割条目-->
+<!--            const items = content.split('\t').filter(item => item.trim());-->
+            // 按空格分割条目（处理多个空格的情况）
+            const items = content.split(/\s+/).filter(item => item.trim());
+
+            // 解析每个条目
+            items.forEach(item => {
+                const [id, desc] = item.split('_', 2);
+                if (id && desc) {
+                    eventIdMap[id] = desc;
+                }
+            });
+            
+            if (Object.keys(eventIdMap).length === 0) {
+                throw new Error('未解析到有效的EventID数据');
+            }
+        }
+
+        // 解析ResultID部分（支持跨多行）
+        function parseResultIdSection(lines) {
+            // 合并所有行内容，处理可能的换行
+            const content = lines.map(line => {
+                if (line.startsWith('ResultID：')) {
+                    return line.split('：', 2)[1].trim();
+                }
+                return line.trim();
+            }).join(' ');
+            
+            if (!content) {
+                throw new Error('ResultID部分内容为空');
+            }
+            
+            // 按空格分割条目（处理多个空格的情况）
+            const items = content.split(/\s+/).filter(item => item.trim());
+            
+            // 解析每个条目
+            items.forEach(item => {
+                const [id, desc] = item.split('_', 2);
+                if (id && desc) {
+                    resultIdMap[id] = desc;
+                }
+            });
+            
+            if (Object.keys(resultIdMap).length === 0) {
+                throw new Error('未解析到有效的ResultID数据');
+            }
+        }
+
+        // 解析Condition部分
+        function parseConditionSection(lines) {
+            // 处理每一行条件，跳过标题行
+            lines.forEach(line => {
+                if (line.startsWith('Condition：')) {
+                    return;
+                }
+                
+                // 分割条件名称和值部分
+                const [namePart, valuesPart] = line.split('/').map(part => part.trim());
+                if (!namePart || !valuesPart) {
+                    return; // 跳过格式不正确的行
+                }
+                
+                // 提取条件名称（去掉=及后面的内容）
+                const conditionName = namePart.split('=')[0].trim();
+                
+                // 解析值描述
+                const valueItems = valuesPart.split(/\s+/).filter(item => item.trim());
+                const valueMap = {};
+                
+                valueItems.forEach(item => {
+                    const [id, desc] = item.split('_', 2);
+                    if (id && desc) {
+                        valueMap[id] = desc;
+                    }
+                });
+                
+                if (conditionName && Object.keys(valueMap).length > 0) {
+                    conditionMap[conditionName] = valueMap;
+                }
+            });
+            
+            if (Object.keys(conditionMap).length === 0) {
+                throw new Error('未解析到有效的Condition数据');
+            }
+        }
+
+        // 从Condition构建状态定义（原规则文件功能）
+        function buildStatusDefinitions() {
+            const newDefinitions = [];
+            const conditions = Object.keys(conditionMap);
+            
+            conditions.forEach(conditionName => {
+                const values = conditionMap[conditionName];
+                const valueKeys = Object.keys(values);
+                
+                const descItems = valueKeys.map(key => `${key}_${values[key]}`);
+                
+                newDefinitions.push({
+                    name: conditionName,
+                    length: 1,
+                    values: valueKeys.reduce((obj, key) => {
+                        obj[key] = `${key}_${values[key]}`;
+                        return obj;
+                    }, {}),
+                    allValues: descItems.join("\t")
+                });
+            });
+            
+            statusDefinitionsRight = newDefinitions;
+        }
+
+        // 禁用功能按钮（当数据未加载时）
+        function disableFeatures() {
+            document.getElementById('statusCodeRight').disabled = true;
+            document.getElementById('parseButton').disabled = true;
+            document.getElementById('btnSelectLeft').disabled = true;
+            document.getElementById('inputStringLeft').disabled = true;
+            document.getElementById('btnMatchLeft').disabled = true;
+        }
+
+        // 右栏：正则表达式匹配器逻辑
+        let jsonDataLeft = null;
+
+        /* 文件选择处理 - 右栏 */
+        document.getElementById('fileSelectorLeft').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('filePathLeft').textContent = '已选择：' + file.name;
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    const parsed = JSON.parse(evt.target.result);
+                    if (!parsed || !Array.isArray(parsed.items)) {
+                        throw new Error('根节点缺少 items 数组');
+                    }
+                    jsonDataLeft = parsed;
+                    document.getElementById('inputStringLeft').disabled = false;
+                    document.getElementById('btnMatchLeft').disabled = false;
+                    alert('JSON 文件加载成功，可以开始匹配！');
+                } catch (err) {
+                    alert('JSON 解析失败：' + err.message);
+                    resetFileLeft();
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function resetFileLeft() {
+            jsonDataLeft = null;
+            document.getElementById('filePathLeft').textContent = '尚未选择任何文件';
+            document.getElementById('inputStringLeft').value = '';
+            document.getElementById('inputStringLeft').disabled = true;
+            document.getElementById('btnMatchLeft').disabled = true;
+            document.getElementById('resultsLeft').innerHTML = '';
+        }
+
+        /* 分析正则表达式并标记不匹配的部分 */
+        function highlightMismatchedRegexParts(regexStr, testString) {
+            try {
+                // 检查是否完全匹配
+                const fullRegex = new RegExp(`^${regexStr}$`);
+                if (fullRegex.test(testString)) {
+                    return `<span class="regex-part">${regexStr}</span>`;
+                }
+                
+                // 分解正则表达式为各个部分
+                const parts = regexStr.match(/\(\?:[^)]+\)/g) || [];
+                let currentPos = 0;
+                let highlightedParts = [];
+                let mismatchFound = false;
+                
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    const options = part.slice(3, -1).split('|'); // 去掉(?:和)
+                    let matched = false;
+                    
+                    for (const opt of options) {
+                        if (testString.startsWith(opt, currentPos)) {
+                            currentPos += opt.length;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    
+                    // 如果已找到不匹配项或当前部分不匹配，则标记为不匹配
+                    if (mismatchFound || !matched) {
+                        highlightedParts.push(`<span class="regex-part regex-mismatch">${part}</span>`);
+                        mismatchFound = true;
+                    } else {
+                        highlightedParts.push(`<span class="regex-part">${part}</span>`);
+                    }
+                }
+                
+                return highlightedParts.join('');
+            } catch (e) {
+                return `<span class="regex-part regex-mismatch">${regexStr} (正则表达式无效)</span>`;
+            }
+        }
+
+        /* 匹配位置检测算法 - 右栏 */
+        function findMismatchPositionLeft(regexStr, testString) {
+            try {
+                const regex = new RegExp(`^${regexStr}$`);
+                if (regex.test(testString)) return -1; // 完全匹配
+                
+                // 分解正则表达式为各个部分
+                const parts = regexStr.match(/\(\?:[^)]+\)/g) || [];
+                let currentPos = 0;
+                
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i].slice(3, -1); // 去掉(?:和)
+                    const options = part.split('|');
+                    let matched = false;
+                    
+                    for (const opt of options) {
+                        if (testString.startsWith(opt, currentPos)) {
+                            currentPos += opt.length;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!matched) {
+                        return currentPos + 1; // 返回不匹配的位置
+                    }
+                }
+                
+                // 如果正则部分都匹配了，但字符串还有剩余
+                if (currentPos < testString.length) {
+                    return currentPos + 1;
+                }
+                
+                return -1;
+            } catch (e) {
+                return -2; // 正则表达式无效
+            }
+        }
+
+        /* 主匹配逻辑 - 右栏 */
+        function processInputLeft() {
+            const input = document.getElementById('inputStringLeft').value.trim();
+            const resultsDiv = document.getElementById('resultsLeft');
+            
+            // 清空并显示加载状态
+            resultsDiv.innerHTML = '<div class="loading">正在匹配中...</div>';
+
+            if (!jsonDataLeft) { 
+                resultsDiv.innerHTML = '<div class="error">请先选择 JSON 文件</div>';
+                return; 
+            }
+            if (!input) { 
+                resultsDiv.innerHTML = '<div class="error">请输入事件字符串</div>';
+                return; 
+            }
+
+            const match = input.match(/^(\d+)--(.+)$/);
+            if (!match) { 
+                resultsDiv.innerHTML = '<div class="error">格式应为：数字--字符串</div>';
+                return; 
+            }
+
+            const key = match[1];
+            const testString = match[2];
+            
+            // 解析事件ID对应的事件描述
+            const eventDesc = eventIdMap[key] || `未知事件(${key})`;
+
+            /* 查找匹配的条目 */
+            let targetEntries = null;
+            for (const item of jsonDataLeft.items) {
+                if (item[key]) {
+                    targetEntries = item[key];
+                    break;
+                }
+            }
+
+            if (!targetEntries || targetEntries.length === 0) {
+                resultsDiv.innerHTML = `<div class="tip">事件编号 ${key}（${eventDesc}）不存在或无正则列表</div>`;
+                return;
+            }
+
+            // 短暂延迟，让用户看到刷新效果
+            setTimeout(() => {
+                let hasMatch = false;
+                resultsDiv.innerHTML = `<div class="event-info">当前事件: ${key}_${eventDesc}</div>`;
+                
+                targetEntries.forEach((entry, idx) => {
+                    const regex = new RegExp(`^${entry.regex}$`);
+                    const ok = regex.test(testString);
+                    
+                    // 查找不匹配的位置
+                    let mismatchInfo = '';
+                    let errorPosition = -1;
+                    if (!ok) {
+                        errorPosition = findMismatchPositionLeft(entry.regex, testString);
+                        if (errorPosition > 0) {
+                            mismatchInfo = `<span class="mismatch-info">（第 ${errorPosition} 位不匹配）</span>`;
+                        } else if (errorPosition === -2) {
+                            mismatchInfo = `<span class="mismatch-info">（正则表达式无效）</span>`;
+                        }
+                    }
+
+                    // 高亮显示错误位置
+                    let displayedString = testString;
+                    if (errorPosition > 0 && errorPosition <= testString.length) {
+                        const before = testString.substring(0, errorPosition-1);
+                        const errorChar = testString.substring(errorPosition-1, errorPosition);
+                        const after = testString.substring(errorPosition);
+                        displayedString = `${before}<span class="error-pos">${errorChar}</span>${after}`;
+                    }
+                    
+                    // 获取ResultID对应的描述，并格式化为 "序号_描述" 的形式
+                    const resultId = entry.result;
+                    const resultDesc = resultIdMap[resultId] || `未知结果(${resultId})`;
+                    const formattedResult = `${resultId}_${resultDesc}`;
+                    
+                    // 高亮显示正则表达式中不匹配的部分
+                    const highlightedRegex = highlightMismatchedRegexParts(entry.regex, testString);
+
+                    const div = document.createElement('div');
+                    div.className = `match-item result-item ${ok ? 'matched' : 'unmatched'}`;
+                    div.style.animationDelay = `${idx * 50}ms`;
+                    div.innerHTML = `
+                        <strong>正则 ${idx + 1}</strong><br>
+                        <div class="regex">${highlightedRegex}</div>
+                        <div class="string-display">测试字符串：${displayedString}</div>
+                        匹配结果：${ok ? '✅ 匹配' : '❌ 不匹配'}${mismatchInfo}<br>
+                        返回结果：${entry.result} (${formattedResult})<br>
+                        状态：[${entry.state.join(', ')}]
+                    `;
+                    resultsDiv.appendChild(div);
+                    
+                    // 触发动画
+                    setTimeout(() => {
+                        div.classList.add('fade-in');
+                    }, 50);
+                    
+                    if (ok) hasMatch = true;
+                });
+
+                if (!hasMatch) {
+                    const tip = document.createElement('div');
+                    tip.className = 'tip result-item';
+                    tip.innerHTML = '没有正则表达式匹配该字符串';
+                    resultsDiv.appendChild(tip);
+                    
+                    setTimeout(() => {
+                        tip.classList.add('fade-in');
+                    }, 100);
+                }
+            }, 150);
+        }
+
+        // 左栏：AVM状态解析工具逻辑
+        function parseStatusCodeRight() {
+            const resultSection = document.getElementById("resultSectionRight");
+            const eventSection = document.getElementById("eventSectionRight");
+            
+            // 清空并显示加载状态
+            resultSection.innerHTML = '<div class="loading">正在解析中...</div>';
+            eventSection.innerHTML = '';
+            
+            if (statusDefinitionsRight.length === 0) {
+                resultSection.innerHTML = '<div class="error">数据文件中未找到有效的规则定义</div>';
+                return;
+            }
+            
+            const fullCode = document.getElementById("statusCodeRight").value.trim();
+            
+            if (!fullCode) {
+                resultSection.innerHTML = '<div class="error">请输入状态码</div>';
+                return;
+            }
+            
+            // 短暂延迟，让用户看到刷新效果
+            setTimeout(() => {
+                // 解析事件部分
+                const parts = fullCode.split('--');
+                let eventCode, eventDesc;
+                if (parts.length >= 2) {
+                    eventCode = parts[0];
+                    eventDesc = eventIdMap[eventCode] || `未知事件(${eventCode})`;
+                    
+                    const eventDiv = document.createElement('div');
+                    eventDiv.className = 'event-info result-item';
+                    eventDiv.innerHTML = `当前事件: ${eventCode}_${eventDesc}`;
+                    eventSection.appendChild(eventDiv);
+                    
+                    setTimeout(() => {
+                        eventDiv.classList.add('fade-in');
+                    }, 50);
+                }
+                
+                let statusCode = parts.length >= 2 ? parts[1] : fullCode;
+                
+                // 检查状态码长度
+                const totalLength = statusDefinitionsRight.reduce((sum, def) => sum + def.length, 0);
+                if (statusCode.length !== totalLength) {
+                    resultSection.innerHTML = `
+                        <div class="error">
+                            解析部分应为${totalLength}位，当前为${statusCode.length}位<br>
+                            原始输入：${fullCode}<br>
+                            解析部分：${statusCode}
+                        </div>`;
+                    return;
+                }
+                
+                displayParseResultRight(statusCode, fullCode);
+            }, 150);
+        }
+        
+        // 显示解析结果 - 左栏
+        function displayParseResultRight(statusCode, originalCode) {
+            const resultSection = document.getElementById("resultSectionRight");
+            let position = 0;
+            let hasError = false;
+            
+            resultSection.innerHTML = ''; // 清空加载状态
+            
+            // 构建表格
+            let tableHTML = `
+                <table class="result-table result-item">
+                    <thead>
+                        <tr>
+                            <th width="20%">状态名称</th>
+                            <th width="20%">状态描述</th>
+                            <th width="60%">所有状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // 遍历状态定义，在状态名称前添加序号
+            statusDefinitionsRight.forEach((def, index) => {
+                const code = statusCode.substr(position, def.length);
+                position += def.length;
+                
+                const value = def.values[code];
+                const sequenceNumber = index + 1; // 序号从1开始
+                
+                if (!value) {
+                    tableHTML += `
+                        <tr>
+                            <td>${sequenceNumber}. ${def.name}</td>
+                            <td style="color: #e74c3c;">无效状态码(${code})</td>
+                            <td class="all-states">${def.allValues}</td>
+                        </tr>
+                    `;
+                    hasError = true;
+                } else {
+                    tableHTML += `
+                        <tr>
+                            <td>${sequenceNumber}. ${def.name}</td>
+                            <td>${value}</td>
+                            <td class="all-states">${def.allValues}</td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+                <div class="code-info result-item">
+                    <strong>原始输入：</strong> ${originalCode}<br>
+                    <strong>解析部分：</strong> ${statusCode}
+                </div>
+            `;
+            
+            resultSection.innerHTML = tableHTML;
+            
+            // 添加状态提示
+            const statusDiv = document.createElement('div');
+            statusDiv.className = hasError ? 'error result-item' : 'success result-item';
+            statusDiv.textContent = hasError ? '解析完成，但存在错误状态码' : '状态码解析成功';
+            resultSection.appendChild(statusDiv);
+            
+            // 触发动画效果
+            setTimeout(() => {
+                document.querySelectorAll('#resultSectionRight .result-item').forEach((item, index) => {
+                    setTimeout(() => {
+                        item.classList.add('fade-in');
+                    }, index * 30);
+                });
+            }, 50);
+        }
+
+        // 联动处理函数 - 从右侧触发
+        function processBothFromLeft() {
+            // 1. 执行右侧匹配功能
+            processInputLeft();
+            
+            // 2. 将右侧输入同步到左侧
+            const leftInput = document.getElementById('inputStringLeft').value.trim();
+            if (leftInput) {
+                document.getElementById('statusCodeRight').value = leftInput;
+                
+                // 3. 执行左侧解析功能
+                parseStatusCodeRight();
+            }
+        }
+
+        // 联动处理函数 - 从左侧触发
+        function processBothFromRight() {
+            // 1. 执行左侧解析功能
+            parseStatusCodeRight();
+            
+            // 2. 将左侧输入同步到右侧
+            const rightInput = document.getElementById('statusCodeRight').value.trim();
+            if (rightInput) {
+                document.getElementById('inputStringLeft').value = rightInput;
+                
+                // 3. 执行右侧匹配功能
+                processInputLeft();
+            }
+        }
+
+        // 输入框同步功能
+        document.getElementById('inputStringLeft').addEventListener('input', function() {
+            document.getElementById('statusCodeRight').value = this.value;
+        });
+
+        document.getElementById('statusCodeRight').addEventListener('input', function() {
+            document.getElementById('inputStringLeft').value = this.value;
+        });
+    </script>
+</body>
+</html>
+    
