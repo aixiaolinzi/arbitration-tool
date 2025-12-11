@@ -4,8 +4,8 @@
   "description": "仲裁二合一工具",
   "main": "index.js",
   "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev"
+    "dev": "serve public/",
+    "start": "serve public/"
   },
   "keywords": [],
   "author": "",
